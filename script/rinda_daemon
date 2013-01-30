@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+RINDA_ROOT = File.expand_path(File.dirname(__FILE__) + "/..")
+$: << File.expand_path(File.dirname(__FILE__) + "/../lib")
+
+require 'rubygems'
+require 'daemons'
+require 'logging'
+require 'rinda_server'
+CONFIG = {} unless defined? CONFIG
+CONFIG[:rinda_port] = 6683
+CONFIG[:rinda_host] = '127.0.0.1'
+
+def run
+  $logger = Rinda.create_logger('rinda_daemon', "#{RINDA_ROOT}/tmp/rinda.log")
+  
+  begin
+    server = Rinda::RindaServer.new(CONFIG[:rinda_port], :period => 5, :tuplespace => :file, :filename => File.expand_path(File.dirname(__FILE__) + "/../tmp/tuple.space"))
+    Signal.trap("TERM") { server.stop }
+    server.start
+    server.join
+  rescue Exception => e
+    $logger.error "Error in Rinda Daemon: #{e}"
+    $logger.error "#{e.backtrace.join("\n")}"
+  end
+end
+
+Daemons.run_proc("rinda_daemon", :log_output => true, :dir_mode => :normal, :dir => "tmp/pids") { run }
